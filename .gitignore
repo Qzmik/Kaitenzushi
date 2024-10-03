@@ -4,5 +4,5 @@
 # Ada Library Information
 *.ali
 
-src/obj/*
+obj/*
 exec/*

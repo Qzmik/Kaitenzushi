@@ -1,7 +1,7 @@
 project Kaitenzushi is
     for Main use ("main.adb");
-    for Source_Dirs use ("src", ".");
-    for Object_Dir use "src/obj";
+    for Source_Dirs use ("src/body", ".","src/spec");
+    for Object_Dir use "obj";
     for Exec_Dir use "exec";
 
    package Compiler is
