@@ -49,11 +49,18 @@ procedure Simulation is
         entry Take (Product : in Producer_Type; Number : in Integer);
         -- Deliver an assembly (provided there are enough products for it)
         entry Deliver (Assembly : in Assembly_Type; Number : out Integer);
+        entry Sunday;
     end Buffer;
 
-    P : array (1 .. Number_Of_Producers) of Producer;
-    K : array (1 .. Number_Of_Consumers) of Consumer;
-    B : Buffer;
+    task type Calendar is
+        entry Start;
+    end Calendar;
+
+    P          : array (1 .. Number_Of_Producers) of Producer;
+    K          : array (1 .. Number_Of_Consumers) of Consumer;
+    B          : Buffer;
+    day_number : Integer range 1 .. 7;
+    C          : Calendar;
 
     ----TASK DEFINITIONS----
 
@@ -197,58 +204,103 @@ procedure Simulation is
 
         end Storage_Contents;
 
+        procedure Today_Is_Sunday is
+        begin
+            Put_Line
+               ("Today is SUNDAY! Removed 1 of every product if present");
+            for P in Producer_Type loop
+                if Storage (P) > 0 then
+                    Storage (P) := Storage (P) - 1;
+                    In_Storage  := In_Storage - 1;
+                end if;
+            end loop;
+        end Today_Is_Sunday;
+
     begin
-        Put_Line (ESC & "[91m" & "B: Buffer started" & ESC & "[0m");
+        Put_Line
+           (ESC & "[91m" & "Kaitenzushi restaurant started " & ESC & "[0m");
+        Put_Line (ESC & "[91m" & "B: Conveyor belt started" & ESC & "[0m");
         Setup_Variables;
         loop
-            accept Take (Product : in Producer_Type; Number : in Integer) do
-                if Can_Accept (Product) then
-                    Put_Line
-                       (ESC & "[91m" & "B: Accepted product " &
-                        To_String (Product_Name (Product)) & " number " &
-                        Integer'Image (Number) & ESC & "[0m");
-                    Storage (Product) := Storage (Product) + 1;
-                    In_Storage        := In_Storage + 1;
-                else
-                    Put_Line
-                       (ESC & "[91m" & "B: Rejected product " &
-                        To_String (Product_Name (Product)) & " number " &
-                        Integer'Image (Number) & ESC & "[0m");
-                end if;
-            end Take;
-            Storage_Contents;
+            select
+                accept Sunday do
+                    Today_Is_Sunday;
+                end Sunday;
+                Storage_Contents;
+            or
+                accept Take (Product : in Producer_Type; Number : in Integer)
+                do
+                    if Can_Accept (Product) then
+                        Put_Line
+                           (ESC & "[91m" & "B: Accepted product " &
+                            To_String (Product_Name (Product)) & " number " &
+                            Integer'Image (Number) & ESC & "[0m");
+                        Storage (Product) := Storage (Product) + 1;
+                        In_Storage        := In_Storage + 1;
+                    else
+                        Put_Line
+                           (ESC & "[91m" & "B: Rejected product " &
+                            To_String (Product_Name (Product)) & " number " &
+                            Integer'Image (Number) & ESC & "[0m");
+                    end if;
+                end Take;
+                Storage_Contents;
 
-            accept Deliver (Assembly : in Assembly_Type; Number : out Integer)
-            do
-                if Can_Deliver (Assembly) then
-                    Put_Line
-                       (ESC & "[91m" & "B: Delivered assembly " &
-                        To_String (Assembly_Name (Assembly)) & " number " &
-                        Integer'Image (Assembly_Number (Assembly)) & ESC &
-                        "[0m");
-                    for W in Producer_Type loop
-                        Storage (W) :=
-                           Storage (W) - Assembly_Content (Assembly, W);
-                        In_Storage  :=
-                           In_Storage - Assembly_Content (Assembly, W);
-                    end loop;
-                    Number                     := Assembly_Number (Assembly);
-                    Assembly_Number (Assembly) :=
-                       Assembly_Number (Assembly) + 1;
-                else
-                    Put_Line
-                       (ESC & "[91m" & "B: Lacking products for assembly " &
-                        To_String (Assembly_Name (Assembly)) & ESC & "[0m");
-                    Number := 0;
-                end if;
-            end Deliver;
-            Storage_Contents;
-
+                accept Deliver
+                   (Assembly : in Assembly_Type; Number : out Integer)
+                do
+                    if Can_Deliver (Assembly) then
+                        Put_Line
+                           (ESC & "[91m" & "B: Delivered assembly " &
+                            To_String (Assembly_Name (Assembly)) & " number " &
+                            Integer'Image (Assembly_Number (Assembly)) & ESC &
+                            "[0m");
+                        for W in Producer_Type loop
+                            Storage (W) :=
+                               Storage (W) - Assembly_Content (Assembly, W);
+                            In_Storage  :=
+                               In_Storage - Assembly_Content (Assembly, W);
+                        end loop;
+                        Number := Assembly_Number (Assembly);
+                        Assembly_Number (Assembly) :=
+                           Assembly_Number (Assembly) + 1;
+                    else
+                        Put_Line
+                           (ESC & "[91m" &
+                            "B: Lacking products for assembly " &
+                            To_String (Assembly_Name (Assembly)) & ESC &
+                            "[0m");
+                        Number := 0;
+                    end if;
+                end Deliver;
+                Storage_Contents;
+            end select;
         end loop;
     end Buffer;
 
+    task body Calendar is
+        time_interval : Duration;
+    begin
+        accept Start do
+            day_number    := 1;
+            time_interval := 3.0;
+            Put_Line ("Today is day number " & Integer'Image (day_number));
+        end Start;
+        loop
+            delay (time_interval);
+            if day_number = 7 then
+                B.Sunday;
+                day_number := 1;
+            else
+                day_number := day_number + 1;
+            end if;
+            Put_Line ("Today is day number " & Integer'Image (day_number));
+        end loop;
+    end Calendar;
+
     ---"MAIN" FOR SIMULATION---
 begin
+    C.Start;
     for I in 1 .. Number_Of_Producers loop
         P (I).Start (I, 10);
     end loop;
