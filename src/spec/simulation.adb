@@ -20,13 +20,13 @@ procedure Simulation is
 
     --each Producer is assigned a Product that it produces
     Product_Name  : constant array (Producer_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Product1"), To_Unbounded_String ("Product2"),
-        To_Unbounded_String ("Product3"), To_Unbounded_String ("Product4"),
-        To_Unbounded_String ("Product5"));
+       (To_Unbounded_String ("Rice"), To_Unbounded_String ("Wasabi"),
+        To_Unbounded_String ("Salamon"), To_Unbounded_String ("Shrimp(ebi)"),
+        To_Unbounded_String ("Awokado"));
     --Assembly is a collection of products
     Assembly_Name : constant array (Assembly_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Assembly1"), To_Unbounded_String ("Assembly2"),
-        To_Unbounded_String ("Assembly3"));
+       (To_Unbounded_String ("Maki Sushi"), To_Unbounded_String ("Ebi Nigiri"),
+        To_Unbounded_String ("Nigiri Sushi"));
 
     ----TASK DECLARATIONS----
 
@@ -155,7 +155,7 @@ procedure Simulation is
         Storage              : Storage_type := (0, 0, 0, 0, 0);
         --Assembley product items--
         Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
-           ((2, 1, 2, 0, 2), (1, 2, 0, 1, 0), (3, 2, 2, 0, 1));
+           ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (2, 2, 2, 3, 0));
         Max_Assembly_Content : array (Producer_Type) of Integer;
         Assembly_Number      : array (Assembly_Type) of Integer := (1, 1, 1);
         In_Storage           : Integer := 0;
