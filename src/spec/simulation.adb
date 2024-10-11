@@ -10,8 +10,6 @@ with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 procedure Simulation is
 
     ----GLOBAL VARIABLES---
-
-    Abort_Flag : Boolean := False;
     Number_Of_Producers  : constant Integer := 5;
     Number_Of_Assemblies : constant Integer := 3;
     Number_Of_Consumers  : constant Integer := 2;
@@ -90,7 +88,6 @@ procedure Simulation is
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
-            exit when Abort_Flag;
             Random_Time := Duration (Random_Production.Random (G));
             delay Random_Time;
             Put_Line
@@ -137,7 +134,6 @@ procedure Simulation is
            (ESC & "[96m" & "C: Started consumer " &
             To_String (Consumer_Name (Consumer_Nb)) & ESC & "[0m");
         loop
-            exit when Abort_Flag;
             delay Duration
                (Random_Consumption.Random (G)); --  simulate consumption
             Assembly_Type := Random_Assembly.Random (GA);
@@ -232,15 +228,46 @@ procedure Simulation is
                 end Sunday;
                 Storage_Contents;
             or
-                accept Take (Product : in Producer_Type; Number : in Integer)
-                do
-                    if Can_Accept (Product) then
-                        Put_Line
-                           (ESC & "[91m" & "B: Accepted product " &
-                            To_String (Product_Name (Product)) & " number " &
-                            Integer'Image (Number) & ESC & "[0m");
-                        Storage (Product) := Storage (Product) + 1;
-                        In_Storage        := In_Storage + 1;
+                select
+                    
+                    accept Deliver
+                       (Assembly : in Assembly_Type; Number : out Integer)
+                    do
+                        if Can_Deliver (Assembly) then
+                            Put_Line
+                               (ESC & "[91m" & "B: Delivered assembly " &
+                                To_String (Assembly_Name (Assembly)) & " number " &
+                                Integer'Image (Assembly_Number (Assembly)) & ESC &
+                                "[0m");
+                            for W in Producer_Type loop
+                                Storage (W) :=
+                                   Storage (W) - Assembly_Content (Assembly, W);
+                                In_Storage  :=
+                                   In_Storage - Assembly_Content (Assembly, W);
+                            end loop;
+                            Number := Assembly_Number (Assembly);
+                            Assembly_Number (Assembly) :=
+                               Assembly_Number (Assembly) + 1;
+                        else
+                            Put_Line
+                               (ESC & "[91m" &
+                                "B: Lacking products for assembly " &
+                                To_String (Assembly_Name (Assembly)) & ESC &
+                                "[0m");
+                            Number := 0;
+                        end if;
+                    end Deliver;
+                    Storage_Contents;
+                then abort
+                    accept Take (Product : in Producer_Type; Number : in Integer)
+                    do
+                        if Can_Accept (Product) then
+                            Put_Line
+                               (ESC & "[91m" & "B: Accepted product " &
+                                To_String (Product_Name (Product)) & " number " &
+                                Integer'Image (Number) & ESC & "[0m");
+                            Storage (Product) := Storage (Product) + 1;
+                            In_Storage        := In_Storage + 1;
                     else
                         Put_Line
                            (ESC & "[91m" & "B: Rejected product " &
@@ -249,60 +276,15 @@ procedure Simulation is
                     end if;
                 end Take;
                 Storage_Contents;
-
-                accept Deliver
-                   (Assembly : in Assembly_Type; Number : out Integer)
-                do
-                    if Can_Deliver (Assembly) then
-                        Put_Line
-                           (ESC & "[91m" & "B: Delivered assembly " &
-                            To_String (Assembly_Name (Assembly)) & " number " &
-                            Integer'Image (Assembly_Number (Assembly)) & ESC &
-                            "[0m");
-                        for W in Producer_Type loop
-                            Storage (W) :=
-                               Storage (W) - Assembly_Content (Assembly, W);
-                            In_Storage  :=
-                               In_Storage - Assembly_Content (Assembly, W);
-                        end loop;
-                        Number := Assembly_Number (Assembly);
-                        Assembly_Number (Assembly) :=
-                           Assembly_Number (Assembly) + 1;
-                    else
-                        Put_Line
-                           (ESC & "[91m" &
-                            "B: Lacking products for assembly " &
-                            To_String (Assembly_Name (Assembly)) & ESC &
-                            "[0m");
-                        Number := 0;
-                    end if;
-                end Deliver;
-                Storage_Contents;
+                end select;
             end select;
         end loop;
     end Buffer;
 
-    --User Interput--
-    task type User_Interrupt is
-        entry Ask_User;
-    end User_Interrupt;
 
-    task body User_Interrupt is
-        Answer : Character;
-    begin
-        accept Ask_User do
-            Put_Line ("Do you want to end kompilation? (y/n)");
-            Get (Answer);
-            if Answer = 'y' or else Answer = 'Y' then
-                Abort_Flag := True;
-                Put_line("Compilation ended...");
-            end if;
-        end Ask_User;
-    end User_Interrupt;
 
     task body Calendar is
         time_interval : Duration;
-        UI : User_Interrupt;
     begin
         accept Start do
             day_number    := 1;
@@ -312,21 +294,6 @@ procedure Simulation is
         loop
             delay (time_interval);
             if day_number = 7 then
-                select
-                    UI.Ask_User;
-                or
-                    delay 100000.0;
-                    Put_Line("No input - continue compilation...");
-                end select;
-                if Abort_Flag then
-                    for I in 1 .. Number_Of_Producers loop
-                        abort P(I);
-                    end loop;
-                    for J in 1 .. Number_Of_Consumers loop
-                        abort K(J);
-                    end loop;
-                    exit;
-                end if;
                 B.Sunday;
                 day_number := 1;
             else
