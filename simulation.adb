@@ -10,7 +10,6 @@ with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 procedure Simulation is
 
     ----GLOBAL VARIABLES---
-
     Number_Of_Producers  : constant Integer := 5;
     Number_Of_Assemblies : constant Integer := 3;
     Number_Of_Consumers  : constant Integer := 2;
@@ -21,13 +20,13 @@ procedure Simulation is
 
     --each Producer is assigned a Product that it produces
     Product_Name  : constant array (Producer_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Product1"), To_Unbounded_String ("Product2"),
-        To_Unbounded_String ("Product3"), To_Unbounded_String ("Product4"),
-        To_Unbounded_String ("Product5"));
+       (To_Unbounded_String ("Rice"), To_Unbounded_String ("Wasabi"),
+        To_Unbounded_String ("Salamon"), To_Unbounded_String ("Shrimp(ebi)"),
+        To_Unbounded_String ("Awocado"));
     --Assembly is a collection of products
     Assembly_Name : constant array (Assembly_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Assembly1"), To_Unbounded_String ("Assembly2"),
-        To_Unbounded_String ("Assembly3"));
+       (To_Unbounded_String ("Maki Sushi"), To_Unbounded_String ("Ebi Nigiri"),
+        To_Unbounded_String ("Nigiri Sushi"));
 
     ----TASK DECLARATIONS----
 
@@ -76,6 +75,28 @@ procedure Simulation is
         Product_Number       : Integer;
         Production           : Integer;
         Random_Time          : Duration;
+
+        procedure add_product is
+        begin
+            Random_Time := Duration (Random_Production.Random (G));
+            delay Random_Time;
+            select
+                B.Take (Producer_Type_Number, Product_Number);
+                Put_Line
+                   (ESC & "[93m" & "P: Produced product " &
+                    To_String (Product_Name (Producer_Type_Number)) & " number " &
+                    Integer'Image (Product_Number) & ESC & "[0m");
+                -- Accept for storage
+                Product_Number := Product_Number + 1;
+            then abort
+                delay 2.0;  
+                Put_Line(ESC & "[91m" & "P: Production of product " &
+                    To_String(Product_Name(Producer_Type_Number)) &
+                    " aborted due to too long production time..." & ESC & "[0m");
+            end select;
+            
+        end add_product;
+        
     begin
         accept Start (Product : in Producer_Type; Production_Time : in Integer)
         do
@@ -88,16 +109,8 @@ procedure Simulation is
         Put_Line
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
-        loop
-            Random_Time := Duration (Random_Production.Random (G));
-            delay Random_Time;
-            Put_Line
-               (ESC & "[93m" & "P: Produced product " &
-                To_String (Product_Name (Producer_Type_Number)) & " number " &
-                Integer'Image (Product_Number) & ESC & "[0m");
-            -- Accept for storage
-            B.Take (Producer_Type_Number, Product_Number);
-            Product_Number := Product_Number + 1;
+        loop    
+            add_product;
         end loop;
     end Producer;
 
@@ -145,6 +158,7 @@ procedure Simulation is
                 To_String (Consumer_Name (Consumer_Nb)) & " takes assembly " &
                 To_String (Assembly_Name (Assembly_Type)) & " number " &
                 Integer'Image (Assembly_Number) & ESC & "[0m");
+            
         end loop;
     end Consumer;
 
@@ -154,8 +168,9 @@ procedure Simulation is
         Storage_Capacity : constant Integer := 30;
         type Storage_type is array (Producer_Type) of Integer;
         Storage              : Storage_type := (0, 0, 0, 0, 0);
+        --Assembley product items--
         Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
-           ((2, 1, 2, 0, 2), (1, 2, 0, 1, 0), (3, 2, 2, 0, 1));
+           ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (2, 2, 2, 3, 0));
         Max_Assembly_Content : array (Producer_Type) of Integer;
         Assembly_Number      : array (Assembly_Type) of Integer := (1, 1, 1);
         In_Storage           : Integer := 0;
@@ -188,6 +203,7 @@ procedure Simulation is
                     return False;
                 end if;
             end loop;
+        
             return True;
         end Can_Deliver;
 
@@ -222,30 +238,13 @@ procedure Simulation is
         Put_Line (ESC & "[91m" & "B: Conveyor belt started" & ESC & "[0m");
         Setup_Variables;
         loop
+
             select
                 accept Sunday do
                     Today_Is_Sunday;
                 end Sunday;
                 Storage_Contents;
             or
-                accept Take (Product : in Producer_Type; Number : in Integer)
-                do
-                    if Can_Accept (Product) then
-                        Put_Line
-                           (ESC & "[91m" & "B: Accepted product " &
-                            To_String (Product_Name (Product)) & " number " &
-                            Integer'Image (Number) & ESC & "[0m");
-                        Storage (Product) := Storage (Product) + 1;
-                        In_Storage        := In_Storage + 1;
-                    else
-                        Put_Line
-                           (ESC & "[91m" & "B: Rejected product " &
-                            To_String (Product_Name (Product)) & " number " &
-                            Integer'Image (Number) & ESC & "[0m");
-                    end if;
-                end Take;
-                Storage_Contents;
-
                 accept Deliver
                    (Assembly : in Assembly_Type; Number : out Integer)
                 do
@@ -274,9 +273,30 @@ procedure Simulation is
                     end if;
                 end Deliver;
                 Storage_Contents;
+                
+                accept Take (Product : in Producer_Type; Number : in Integer)
+                do
+                    if Can_Accept (Product) then
+                        Put_Line
+                           (ESC & "[91m" & "B: Accepted product " &
+                            To_String (Product_Name (Product)) & " number " &
+                            Integer'Image (Number) & ESC & "[0m");
+                        Storage (Product) := Storage (Product) + 1;
+                        In_Storage        := In_Storage + 1;
+                else
+                    Put_Line
+                       (ESC & "[91m" & "B: Rejected product " &
+                        To_String (Product_Name (Product)) & " number " &
+                        Integer'Image (Number) & ESC & "[0m");
+                end if;
+                end Take;
+                Storage_Contents;
             end select;
+
         end loop;
     end Buffer;
+
+
 
     task body Calendar is
         time_interval : Duration;
@@ -294,7 +314,6 @@ procedure Simulation is
             else
                 day_number := day_number + 1;
             end if;
-            Put_Line ("Today is day number " & Integer'Image (day_number));
         end loop;
     end Calendar;
 
