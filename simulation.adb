@@ -100,24 +100,30 @@ procedure Simulation is
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
-            Production_Chance :=
-               ((Generation_Chance.Random (C)) mod Maximum_Amount);
-            Random_Time       := Duration (Random_Production.Random (G));
-            if Weight < Production_Chance then
-                delay Random_Time;
-                Put_Line ("Blocked prodcution");
-            else
-                delay Duration (Random_Time / Weight);
-                Put_Line
-                   (ESC & "[93m" & "P: Produced product " &
-                    To_String (Product_Name (Producer_Type_Number)) &
-                    " number " & Integer'Image (Product_Number) & ESC & "[0m");
-                -- Accept for storage
-                B.Take
-                   (Producer_Type_Number, Product_Number, Weight,
-                    Maximum_Amount);
-                Product_Number := Product_Number + 1;
-            end if;
+            select
+                delay 2.5;
+                Put_Line ("Production took too long");
+            then abort
+                Production_Chance :=
+                   ((Generation_Chance.Random (C)) mod Maximum_Amount);
+                Random_Time       := Duration (Random_Production.Random (G));
+                if Weight < Production_Chance then
+                    delay Random_Time;
+                    Put_Line ("Blocked prodcution due to sufficient supply");
+                else
+                    delay Duration (Random_Time / Weight);
+                    Put_Line
+                       (ESC & "[93m" & "P: Produced product " &
+                        To_String (Product_Name (Producer_Type_Number)) &
+                        " number " & Integer'Image (Product_Number) & ESC &
+                        "[0m");
+                    -- Accept for storage
+                    B.Take
+                       (Producer_Type_Number, Product_Number, Weight,
+                        Maximum_Amount);
+                    Product_Number := Product_Number + 1;
+                end if;
+            end select;
         end loop;
     end Producer;
 
