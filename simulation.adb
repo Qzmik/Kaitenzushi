@@ -11,7 +11,7 @@ procedure Simulation is
 
     ----GLOBAL VARIABLES---
 
-    Number_Of_Producers  : constant Integer := 5;
+   Number_Of_Producers  : constant Integer := 5;
     Number_Of_Assemblies : constant Integer := 3;
     Number_Of_Consumers  : constant Integer := 2;
 
@@ -21,13 +21,13 @@ procedure Simulation is
 
     --each Producer is assigned a Product that it produces
     Product_Name  : constant array (Producer_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Product1"), To_Unbounded_String ("Product2"),
-        To_Unbounded_String ("Product3"), To_Unbounded_String ("Product4"),
-        To_Unbounded_String ("Product5"));
+       (To_Unbounded_String ("Rice"), To_Unbounded_String ("Wasabi"),
+        To_Unbounded_String ("Salmon"), To_Unbounded_String ("Shrimp(ebi)"),
+        To_Unbounded_String ("Avocado"));
     --Assembly is a collection of products
     Assembly_Name : constant array (Assembly_Type) of Unbounded_String :=
-       (To_Unbounded_String ("Assembly1"), To_Unbounded_String ("Assembly2"),
-        To_Unbounded_String ("Assembly3"));
+       (To_Unbounded_String ("Maki Sushi"), To_Unbounded_String ("Ebi Nigiri"),
+        To_Unbounded_String ("Nigiri Sushi"));
 
     ----TASK DECLARATIONS----
 
@@ -100,6 +100,7 @@ procedure Simulation is
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
+            select
             Production_Chance :=
                ((Generation_Chance.Random (C)) mod Maximum_Amount);
             Random_Time       := Duration (Random_Production.Random (G));
@@ -117,6 +118,8 @@ procedure Simulation is
                    (Producer_Type_Number, Product_Number, Weight,
                     Maximum_Amount);
                 Product_Number := Product_Number + 1;
+            then abort
+              
             end if;
         end loop;
     end Producer;
@@ -124,7 +127,7 @@ procedure Simulation is
     --Consumer--
 
     task body Consumer is
-        subtype Consumption_Time_Range is Integer range 2 .. 4;
+        subtype Consumption_Time_Range is Integer range 4 .. 8;
         package Random_Consumption is new Ada.Numerics.Discrete_Random
            (Consumption_Time_Range);
 
@@ -140,8 +143,8 @@ procedure Simulation is
         Assembly_Type   : Integer;
         Consumer_Name   :
            constant array (1 .. Number_Of_Consumers) of Unbounded_String :=
-           (To_Unbounded_String ("Consumer1"),
-            To_Unbounded_String ("Consumer2"));
+           (To_Unbounded_String ("Jan Kowalski"),
+            To_Unbounded_String ("Maciej Nowak"));
     begin
         accept Start
            (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer)
@@ -152,7 +155,7 @@ procedure Simulation is
             Consumption := Consumption_Time;
         end Start;
         Put_Line
-           (ESC & "[96m" & "C: Started consumer " &
+           (ESC & "[90m" & "C: Started consumer " &
             To_String (Consumer_Name (Consumer_Nb)) & ESC & "[0m");
         loop
             delay Duration
@@ -160,11 +163,19 @@ procedure Simulation is
             Assembly_Type := Random_Assembly.Random (GA);
             -- take an assembly for consumption
             B.Deliver (Assembly_Type, Assembly_Number);
-            Put_Line
-               (ESC & "[96m" & "C: " &
-                To_String (Consumer_Name (Consumer_Nb)) & " takes assembly " &
-                To_String (Assembly_Name (Assembly_Type)) & " number " &
-                Integer'Image (Assembly_Number) & ESC & "[0m");
+            if Assembly_Number > 0 then
+                Put_Line
+                    (ESC & "[96m" & "C: " &
+                    To_String (Consumer_Name (Consumer_Nb)) & " takes assembly " &
+                    To_String (Assembly_Name (Assembly_Type)) & " number " &
+                    Integer'Image (Assembly_Number) & ESC & "[0m");
+            else
+                Put_Line
+                    (ESC & "[91m" & "C: " &
+                    To_String (Consumer_Name (Consumer_Nb)) & " can't take assembly " &
+                    To_String (Assembly_Name (Assembly_Type)) & " :( " & 
+                    ESC & "[0m");
+            end if;
         end loop;
     end Consumer;
 
@@ -175,7 +186,7 @@ procedure Simulation is
         type Storage_type is array (Producer_Type) of Integer;
         Storage                        : Storage_type := (0, 0, 0, 0, 0);
         Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
-           ((2, 1, 2, 0, 2), (1, 2, 0, 1, 0), (3, 2, 2, 0, 1));
+           ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (2, 2, 2, 3, 0));
         Max_Assembly_Content           : array (Producer_Type) of Integer;
         Production_Probability_Weights : array (Producer_Type) of Integer;
         Assembly_Number : array (Assembly_Type) of Integer := (1, 1, 1);
@@ -323,7 +334,7 @@ procedure Simulation is
         accept Start do
             day_number    := 1;
             time_interval := 3.0;
-            Put_Line ("Today is day number " & Integer'Image (day_number));
+            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
         end Start;
         loop
             delay (time_interval);
@@ -333,7 +344,7 @@ procedure Simulation is
             else
                 day_number := day_number + 1;
             end if;
-            Put_Line ("Today is day number " & Integer'Image (day_number));
+            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
         end loop;
     end Calendar;
 
