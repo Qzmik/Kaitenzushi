@@ -11,7 +11,7 @@ procedure Simulation is
 
     ----GLOBAL VARIABLES---
 
-   Number_Of_Producers  : constant Integer := 5;
+    Number_Of_Producers  : constant Integer := 5;
     Number_Of_Assemblies : constant Integer := 3;
     Number_Of_Consumers  : constant Integer := 2;
 
@@ -100,7 +100,6 @@ procedure Simulation is
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
-            select
             Production_Chance :=
                ((Generation_Chance.Random (C)) mod Maximum_Amount);
             Random_Time       := Duration (Random_Production.Random (G));
@@ -118,8 +117,6 @@ procedure Simulation is
                    (Producer_Type_Number, Product_Number, Weight,
                     Maximum_Amount);
                 Product_Number := Product_Number + 1;
-            then abort
-              
             end if;
         end loop;
     end Producer;
@@ -165,16 +162,18 @@ procedure Simulation is
             B.Deliver (Assembly_Type, Assembly_Number);
             if Assembly_Number > 0 then
                 Put_Line
-                    (ESC & "[96m" & "C: " &
-                    To_String (Consumer_Name (Consumer_Nb)) & " takes assembly " &
+                   (ESC & "[96m" & "C: " &
+                    To_String (Consumer_Name (Consumer_Nb)) &
+                    " takes assembly " &
                     To_String (Assembly_Name (Assembly_Type)) & " number " &
                     Integer'Image (Assembly_Number) & ESC & "[0m");
             else
                 Put_Line
-                    (ESC & "[91m" & "C: " &
-                    To_String (Consumer_Name (Consumer_Nb)) & " can't take assembly " &
-                    To_String (Assembly_Name (Assembly_Type)) & " :( " & 
-                    ESC & "[0m");
+                   (ESC & "[91m" & "C: " &
+                    To_String (Consumer_Name (Consumer_Nb)) &
+                    " can't take assembly " &
+                    To_String (Assembly_Name (Assembly_Type)) & " :( " & ESC &
+                    "[0m");
             end if;
         end loop;
     end Consumer;
@@ -334,7 +333,9 @@ procedure Simulation is
         accept Start do
             day_number    := 1;
             time_interval := 3.0;
-            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
+            Put_Line
+               (ESC & "[95m" & "Today is day number " &
+                Integer'Image (day_number) & ESC & "[0m");
         end Start;
         loop
             delay (time_interval);
@@ -344,7 +345,9 @@ procedure Simulation is
             else
                 day_number := day_number + 1;
             end if;
-            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
+            Put_Line
+               (ESC & "[95m" & "Today is day number " &
+                Integer'Image (day_number) & ESC & "[0m");
         end loop;
     end Calendar;
 
