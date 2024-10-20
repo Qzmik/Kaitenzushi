@@ -69,7 +69,7 @@ procedure Simulation is
     --Producer--
 
     task body Producer is
-        subtype Production_Time_Range is Integer range 1 .. 3;
+        subtype Production_Time_Range is Integer range 3 .. 6;
         package Random_Production is new Ada.Numerics.Discrete_Random
            (Production_Time_Range);
         --  random number generator
@@ -77,39 +77,40 @@ procedure Simulation is
         Producer_Type_Number : Integer;
         Product_Number       : Integer;
         Production           : Integer;
-        Production_Chance    : Integer;
         Random_Time          : Duration;
-        Maximum_Amount       : Integer;
-        package Generation_Chance is new Ada.Numerics.Discrete_Random
-           (Positive);
-        Weight : Integer;
-        C      : Generation_Chance.Generator;
+
+        Maximum_Amount : Integer;
+        Weight         : Integer;
     begin
         accept Start (Product : in Producer_Type; Production_Time : in Integer)
         do
             --  start random number generator
             Random_Production.Reset (G);
-            Generation_Chance.Reset (C);
             Product_Number       := 1;
             Producer_Type_Number := Product;
             Production           := Production_Time;
             Weight               := 1;
-            Maximum_Amount       := 1;
+            Maximum_Amount       := 0;
         end Start;
         Put_Line
            (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
             select
-                delay 2.5;
-                Put_Line ("Production took too long");
+                delay 5.5;
+                Put_Line
+                   ("Production of " &
+                    To_String (Product_Name (Producer_Type_Number)) &
+                    " took too long, chef is bad, we swap a chef");
             then abort
-                Production_Chance :=
-                   ((Generation_Chance.Random (C)) mod Maximum_Amount);
-                Random_Time       := Duration (Random_Production.Random (G));
-                if Weight < Production_Chance then
-                    delay Random_Time;
-                    Put_Line ("Blocked prodcution due to sufficient supply");
+                Random_Time := Duration (Random_Production.Random (G));
+                if Weight = 0 then
+                    Put_Line
+                       ("Blocked prodcution of " &
+                        To_String (Product_Name (Producer_Type_Number)) &
+                        " due to sufficient supply");
+                    Weight := Weight + 1;
+                    delay 5.0; -- cigarette break
                 else
                     delay Duration (Random_Time / Weight);
                     Put_Line
@@ -191,7 +192,7 @@ procedure Simulation is
         type Storage_type is array (Producer_Type) of Integer;
         Storage                        : Storage_type := (0, 0, 0, 0, 0);
         Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
-           ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (2, 2, 2, 3, 0));
+           ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (3, 2, 2, 3, 0));
         Max_Assembly_Content           : array (Producer_Type) of Integer;
         Production_Probability_Weights : array (Producer_Type) of Integer;
         Assembly_Number : array (Assembly_Type) of Integer := (1, 1, 1);
