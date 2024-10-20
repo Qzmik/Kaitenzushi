@@ -93,20 +93,20 @@ procedure Simulation is
             Maximum_Amount       := 0;
         end Start;
         Put_Line
-           (ESC & "[93m" & "P: Started producer of " &
+           (ESC & "[90m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
         loop
             select
                 delay 5.5;
                 Put_Line
-                   ("Production of " &
+                   (ESC & "[91m" & "P: Production of " &
                     To_String (Product_Name (Producer_Type_Number)) &
                     " took too long, chef is bad, we swap a chef");
             then abort
                 Random_Time := Duration (Random_Production.Random (G));
                 if Weight = 0 then
                     Put_Line
-                       ("Blocked prodcution of " &
+                       (ESC & "[91m" & "P: Blocked prodcution of " &
                         To_String (Product_Name (Producer_Type_Number)) &
                         " due to sufficient supply");
                     Weight := Weight + 1;
@@ -236,10 +236,10 @@ procedure Simulation is
             for W in Producer_Type loop
                 Put_Line
                    ("|   Storage contents: " & Integer'Image (Storage (W)) &
-                    " " & To_String (Product_Name (W)));
+                    " x " & To_String (Product_Name (W)));
             end loop;
             Put_Line
-               ("|   Number of products in storage: " &
+               ("|   Total number of products: " &
                 Integer'Image (In_Storage));
 
         end Storage_Contents;
@@ -256,7 +256,7 @@ procedure Simulation is
         procedure Today_Is_Sunday is
         begin
             Put_Line
-               ("Today was SUNDAY! Removed 1 of every product if present");
+               (ESC & "[95m" & "Today is SUNDAY! Removed 1 of every product if present" & ESC & "[0m");
             for P in Producer_Type loop
                 if Storage (P) > 0 then
                     Storage (P) := Storage (P) - 1;
@@ -268,8 +268,8 @@ procedure Simulation is
 
     begin
         Put_Line
-           (ESC & "[91m" & "Kaitenzushi restaurant started " & ESC & "[0m");
-        Put_Line (ESC & "[91m" & "B: Conveyor belt started" & ESC & "[0m");
+           (ESC & "[94m" & "Kaitenzushi restaurant started " & ESC & "[0m");
+        Put_Line (ESC & "[94m" & "B: Conveyor belt started" & ESC & "[0m");
         Setup_Variables;
         loop
             select
@@ -279,7 +279,7 @@ procedure Simulation is
                 do
                     if Can_Accept (Product) then
                         Put_Line
-                           (ESC & "[91m" & "B: Accepted product " &
+                           (ESC & "[92m" & "B: Accepted product " &
                             To_String (Product_Name (Product)) & " number " &
                             Integer'Image (Number) & ESC & "[0m");
                         Storage (Product) := Storage (Product) + 1;
@@ -301,7 +301,7 @@ procedure Simulation is
                 do
                     if Can_Deliver (Assembly) then
                         Put_Line
-                           (ESC & "[91m" & "B: Delivered assembly " &
+                           (ESC & "[92m" & "B: Delivered assembly " &
                             To_String (Assembly_Name (Assembly)) & " number " &
                             Integer'Image (Assembly_Number (Assembly)) & ESC &
                             "[0m");
