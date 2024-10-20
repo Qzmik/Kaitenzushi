@@ -10,7 +10,8 @@ with Ada.Strings.Unbounded;  use Ada.Strings.Unbounded;
 procedure Simulation is
 
     ----GLOBAL VARIABLES---
-    Number_Of_Producers  : constant Integer := 5;
+
+   Number_Of_Producers  : constant Integer := 5;
     Number_Of_Assemblies : constant Integer := 3;
     Number_Of_Consumers  : constant Integer := 2;
 
@@ -45,7 +46,9 @@ procedure Simulation is
     -- Buffer receives products from Producers and delivers Assemblies to Consumers
     task type Buffer is
         -- Accept a product to the storage (provided there is a room for it)
-        entry Take (Product : in Producer_Type; Number : in Integer);
+        entry Take
+           (Product    : in     Producer_Type; Number : in Integer;
+            New_Weight :    out Integer; Maximum_Amount : out Integer);
         -- Deliver an assembly (provided there are enough products for it)
         entry Deliver (Assembly : in Assembly_Type; Number : out Integer);
         entry Sunday;
@@ -74,43 +77,50 @@ procedure Simulation is
         Producer_Type_Number : Integer;
         Product_Number       : Integer;
         Production           : Integer;
+        Production_Chance    : Integer;
         Random_Time          : Duration;
-
-        procedure add_product is
-        begin
-            Random_Time := Duration (Random_Production.Random (G));
-            delay Random_Time;
-            select
-                B.Take (Producer_Type_Number, Product_Number);
-                Put_Line
-                   (ESC & "[93m" & "P: Produced product " &
-                    To_String (Product_Name (Producer_Type_Number)) & " number " &
-                    Integer'Image (Product_Number) & ESC & "[0m");
-                -- Accept for storage
-                Product_Number := Product_Number + 1;
-            then abort
-                delay 2.0;  
-                Put_Line(ESC & "[91m" & "P: Production of " &
-                    To_String(Product_Name(Producer_Type_Number)) &
-                    " aborted. Too long production time." & ESC & "[0m");
-            end select;
-            
-        end add_product;
-        
+        Maximum_Amount       : Integer;
+        package Generation_Chance is new Ada.Numerics.Discrete_Random
+           (Positive);
+        Weight : Integer;
+        C      : Generation_Chance.Generator;
     begin
         accept Start (Product : in Producer_Type; Production_Time : in Integer)
         do
             --  start random number generator
             Random_Production.Reset (G);
+            Generation_Chance.Reset (C);
             Product_Number       := 1;
             Producer_Type_Number := Product;
             Production           := Production_Time;
+            Weight               := 1;
+            Maximum_Amount       := 1;
         end Start;
         Put_Line
-           (ESC & "[90m" & "P: Started producer of " &
+           (ESC & "[93m" & "P: Started producer of " &
             To_String (Product_Name (Producer_Type_Number)) & ESC & "[0m");
-        loop    
-            add_product;
+        loop
+            select
+            Production_Chance :=
+               ((Generation_Chance.Random (C)) mod Maximum_Amount);
+            Random_Time       := Duration (Random_Production.Random (G));
+            if Weight < Production_Chance then
+                delay Random_Time;
+                Put_Line ("Blocked prodcution");
+            else
+                delay Duration (Random_Time / Weight);
+                Put_Line
+                   (ESC & "[93m" & "P: Produced product " &
+                    To_String (Product_Name (Producer_Type_Number)) &
+                    " number " & Integer'Image (Product_Number) & ESC & "[0m");
+                -- Accept for storage
+                B.Take
+                   (Producer_Type_Number, Product_Number, Weight,
+                    Maximum_Amount);
+                Product_Number := Product_Number + 1;
+            then abort
+              
+            end if;
         end loop;
     end Producer;
 
@@ -174,29 +184,31 @@ procedure Simulation is
     task body Buffer is
         Storage_Capacity : constant Integer := 30;
         type Storage_type is array (Producer_Type) of Integer;
-        Storage              : Storage_type := (0, 0, 0, 0, 0);
-        --Assembley product items--
+        Storage                        : Storage_type := (0, 0, 0, 0, 0);
         Assembly_Content : array (Assembly_Type, Producer_Type) of Integer :=
            ((2, 1, 2, 0, 3), (4, 4, 0, 0, 0), (2, 2, 2, 3, 0));
-        Max_Assembly_Content : array (Producer_Type) of Integer;
-        Assembly_Number      : array (Assembly_Type) of Integer := (1, 1, 1);
-        In_Storage           : Integer := 0;
+        Max_Assembly_Content           : array (Producer_Type) of Integer;
+        Production_Probability_Weights : array (Producer_Type) of Integer;
+        Assembly_Number : array (Assembly_Type) of Integer := (1, 1, 1);
+        In_Storage                     : Integer := 0;
 
         procedure Setup_Variables is
         begin
             for W in Producer_Type loop
                 Max_Assembly_Content (W) := 0;
                 for Z in Assembly_Type loop
-                    if Assembly_Content (Z, W) > Max_Assembly_Content (W) then
-                        Max_Assembly_Content (W) := Assembly_Content (Z, W);
-                    end if;
+                    Max_Assembly_Content (W) :=
+                       Max_Assembly_Content (W) + Assembly_Content (Z, W);
                 end loop;
+                Production_Probability_Weights (W) := Max_Assembly_Content (W);
             end loop;
         end Setup_Variables;
 
         function Can_Accept (Product : Producer_Type) return Boolean is
         begin
             if In_Storage >= Storage_Capacity then
+                return False;
+            elsif Storage (Product) >= Max_Assembly_Content (Product) then
                 return False;
             else
                 return True;
@@ -210,7 +222,6 @@ procedure Simulation is
                     return False;
                 end if;
             end loop;
-        
             return True;
         end Can_Deliver;
 
@@ -219,35 +230,64 @@ procedure Simulation is
             for W in Producer_Type loop
                 Put_Line
                    ("|   Storage contents: " & Integer'Image (Storage (W)) &
-                    " x " & To_String (Product_Name (W)));
+                    " " & To_String (Product_Name (W)));
             end loop;
             Put_Line
-               ("|   Total in storage: " &
+               ("|   Number of products in storage: " &
                 Integer'Image (In_Storage));
 
         end Storage_Contents;
 
+        procedure Update_Production_Probabilities is
+            Proposed_Weight : Integer;
+        begin
+            for W in Producer_Type loop
+                Proposed_Weight := Max_Assembly_Content (W) - Storage (W);
+                Production_Probability_Weights (W) := Proposed_Weight;
+            end loop;
+        end Update_Production_Probabilities;
+
         procedure Today_Is_Sunday is
         begin
             Put_Line
-               (ESC & "[95m" & "Today is SUNDAY! Removed 1 of every product if present" & ESC & "[0m");
+               ("Today was SUNDAY! Removed 1 of every product if present");
             for P in Producer_Type loop
                 if Storage (P) > 0 then
                     Storage (P) := Storage (P) - 1;
                     In_Storage  := In_Storage - 1;
                 end if;
             end loop;
+            Update_Production_Probabilities;
         end Today_Is_Sunday;
 
     begin
-        Put_Line (ESC & "[94m" & "Kaitenzushi restaurant opened " & ESC & "[0m");
-        Put_Line (ESC & "[94m" & "B: Conveyor belt started" & ESC & "[0m");
+        Put_Line
+           (ESC & "[91m" & "Kaitenzushi restaurant started " & ESC & "[0m");
+        Put_Line (ESC & "[91m" & "B: Conveyor belt started" & ESC & "[0m");
         Setup_Variables;
         loop
             select
-                accept Sunday do
-                    Today_Is_Sunday;
-                end Sunday;
+                accept Take
+                   (Product    : in     Producer_Type; Number : in Integer;
+                    New_Weight :    out Integer; Maximum_Amount : out Integer)
+                do
+                    if Can_Accept (Product) then
+                        Put_Line
+                           (ESC & "[91m" & "B: Accepted product " &
+                            To_String (Product_Name (Product)) & " number " &
+                            Integer'Image (Number) & ESC & "[0m");
+                        Storage (Product) := Storage (Product) + 1;
+                        In_Storage        := In_Storage + 1;
+                        Update_Production_Probabilities;
+                    else
+                        Put_Line
+                           (ESC & "[91m" & "B: Rejected product " &
+                            To_String (Product_Name (Product)) & " number " &
+                            Integer'Image (Number) & ESC & "[0m");
+                    end if;
+                    New_Weight     := Production_Probability_Weights (Product);
+                    Maximum_Amount := Max_Assembly_Content (Product);
+                end Take;
                 Storage_Contents;
             or
                 accept Deliver
@@ -264,6 +304,7 @@ procedure Simulation is
                                Storage (W) - Assembly_Content (Assembly, W);
                             In_Storage  :=
                                In_Storage - Assembly_Content (Assembly, W);
+                            Update_Production_Probabilities;
                         end loop;
                         Number := Assembly_Number (Assembly);
                         Assembly_Number (Assembly) :=
@@ -278,30 +319,14 @@ procedure Simulation is
                     end if;
                 end Deliver;
                 Storage_Contents;
-                
-                accept Take (Product : in Producer_Type; Number : in Integer)
-                do
-                    if Can_Accept (Product) then
-                        Put_Line
-                           (ESC & "[92m" & "B: Accepted product " &
-                            To_String (Product_Name (Product)) & " number " &
-                            Integer'Image (Number) & ESC & "[0m");
-                        Storage (Product) := Storage (Product) + 1;
-                        In_Storage        := In_Storage + 1;
-                    else
-                        Put_Line
-                            (ESC & "[91m" & "B: Rejected product " &
-                            To_String (Product_Name (Product)) & " number " &
-                            Integer'Image (Number) & ESC & "[0m");
-                    end if;
-                end Take;
+            or
+                accept Sunday do
+                    Today_Is_Sunday;
+                end Sunday;
                 Storage_Contents;
             end select;
-
         end loop;
     end Buffer;
-
-
 
     task body Calendar is
         time_interval : Duration;
@@ -309,9 +334,9 @@ procedure Simulation is
         accept Start do
             day_number    := 1;
             time_interval := 3.0;
+            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
         end Start;
         loop
-            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
             delay (time_interval);
             if day_number = 7 then
                 B.Sunday;
@@ -319,6 +344,7 @@ procedure Simulation is
             else
                 day_number := day_number + 1;
             end if;
+            Put_Line (ESC & "[95m" & "Today is day number " & Integer'Image (day_number) & ESC & "[0m");
         end loop;
     end Calendar;
 
